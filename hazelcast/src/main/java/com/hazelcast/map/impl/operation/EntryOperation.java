@@ -304,4 +304,8 @@ public class EntryOperation extends LockAwareOperation implements BackupAwareOpe
         return mapServiceContext.getMapEventPublisher();
     }
 
+    @Override
+    public void logError(Throwable e) {
+        getLogger().severe("Processor: " + entryProcessor, e);
+    }
 }

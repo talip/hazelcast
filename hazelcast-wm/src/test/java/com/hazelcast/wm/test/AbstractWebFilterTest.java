@@ -56,6 +56,7 @@ public abstract class AbstractWebFilterTest extends HazelcastTestSupport {
     }
 
     static {
+
         final String logging = "hazelcast.logging.type";
         if (System.getProperty(logging) == null) {
             System.setProperty(logging, "log4j");
@@ -65,7 +66,7 @@ public abstract class AbstractWebFilterTest extends HazelcastTestSupport {
         }
         System.setProperty("hazelcast.version.check.enabled", "false");
         System.setProperty("hazelcast.mancenter.enabled", "false");
-        System.setProperty("hazelcast.wait.seconds.before.join", "1");
+        System.setProperty("hazelcast.wait.seconds.before.join", "0");
         System.setProperty("hazelcast.local.localAddress", "127.0.0.1");
         System.setProperty("java.net.preferIPv4Stack", "true");
 

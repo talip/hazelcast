@@ -32,6 +32,13 @@ public abstract class AbstractWebDataEntryProcessor<T>
         extends AbstractEntryProcessor<String, T>
         implements IdentifiedDataSerializable {
 
+    public AbstractWebDataEntryProcessor() {
+    }
+
+    public AbstractWebDataEntryProcessor(boolean applyOnBackup) {
+        super(applyOnBackup);
+    }
+
     @Override
     public int getFactoryId() {
         return WebDataSerializerHook.F_ID;

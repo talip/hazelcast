@@ -64,6 +64,7 @@ import com.hazelcast.queue.impl.QueueService;
 import com.hazelcast.replicatedmap.impl.ReplicatedMapService;
 import com.hazelcast.spi.ProxyService;
 import com.hazelcast.spi.annotation.PrivateApi;
+import com.hazelcast.spi.impl.SerializationServiceSupport;
 import com.hazelcast.topic.impl.TopicService;
 import com.hazelcast.transaction.TransactionContext;
 import com.hazelcast.transaction.TransactionException;
@@ -84,7 +85,7 @@ import static com.hazelcast.core.LifecycleEvent.LifecycleState.STARTING;
 
 @SuppressWarnings("unchecked")
 @PrivateApi
-public class HazelcastInstanceImpl implements HazelcastInstance {
+public class HazelcastInstanceImpl implements HazelcastInstance, SerializationServiceSupport {
 
     public final Node node;
 

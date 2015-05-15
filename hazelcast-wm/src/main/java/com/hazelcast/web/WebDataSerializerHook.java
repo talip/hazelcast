@@ -30,6 +30,12 @@ public class WebDataSerializerHook implements DataSerializerHook {
     public static final int DESTROY_SESSION_ID = 3;
     public static final int INVALIDATE_SESSION_ATTRIBUTES_ID = 4;
     public static final int REFERENCE_SESSION_ID = 5;
+    public static final int SESSION_UPDATE = 6;
+    public static final int INCREMENT_REFERENCE = 7;
+    public static final int GET_ATTRIBUTE = 8;
+    public static final int GET_ATTRIBUTE_NAMES = 9;
+    public static final int GET_SESSION_STATE = 10;
+    public static final int SESSION_STATE = 11;
 
     @Override
     public DataSerializableFactory createFactory() {
@@ -48,6 +54,18 @@ public class WebDataSerializerHook implements DataSerializerHook {
                         return new InvalidateSessionAttributesEntryProcessor();
                     case REFERENCE_SESSION_ID:
                         return new ReferenceSessionEntryProcessor();
+                    case SESSION_UPDATE:
+                        return new ClusteredSessionService.SessionUpdateProcessor();
+                    case INCREMENT_REFERENCE:
+                        return new ClusteredSessionService.UpdateSessionReference();
+                    case GET_ATTRIBUTE:
+                        return new ClusteredSessionService.GetAttribute();
+                    case GET_ATTRIBUTE_NAMES:
+                        return new ClusteredSessionService.GetAttributeNames();
+                    case GET_SESSION_STATE:
+                        return new ClusteredSessionService.GetSessionState();
+                    case SESSION_STATE:
+                        return new SessionState();
                     default:
                         throw new IllegalArgumentException();
                 }

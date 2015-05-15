@@ -17,9 +17,11 @@
 package com.hazelcast.wm.test;
 
 import com.hazelcast.core.IMap;
+import com.hazelcast.nio.serialization.SerializationService;
 import com.hazelcast.test.HazelcastSerialClassRunner;
 import com.hazelcast.test.annotation.QuickTest;
 
+import com.hazelcast.web.SessionState;
 import org.apache.http.client.CookieStore;
 import org.apache.http.impl.client.BasicCookieStore;
 
@@ -89,7 +91,7 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
         IMap<String, Object> map = hz.getMap(DEFAULT_MAP_NAME);
         executeRequest("write", serverPort1, cookieStore);
 
-        assertEquals(2, map.size());
+        assertEquals(1, map.size());
     }
 
     @Test(timeout = 20000)
@@ -112,7 +114,16 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
         executeRequest("update", serverPort2, cookieStore);
 
         assertEquals("value-updated", executeRequest("read", serverPort1, cookieStore));
-        assertSizeEventually(2, map);
+        String newSessionId = map.keySet().iterator().next();
+
+        SessionState sessionState = (SessionState) map.get(newSessionId);
+        System.out.println(sessionState);
+
+        SerializationService ss = getNode(hz).getSerializationService();
+        System.out.println("value is " + ss.toObject(sessionState.attributes.get("key")));
+
+        assertSizeEventually(1, map);
+        assertSizeEventually(1, sessionState.attributes);
     }
 
     @Test(timeout = 20000)
