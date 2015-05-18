@@ -20,16 +20,14 @@ import com.hazelcast.core.IMap;
 import com.hazelcast.nio.serialization.SerializationService;
 import com.hazelcast.test.HazelcastSerialClassRunner;
 import com.hazelcast.test.annotation.QuickTest;
-
 import com.hazelcast.web.SessionState;
 import org.apache.http.client.CookieStore;
 import org.apache.http.impl.client.BasicCookieStore;
-
-import static org.junit.Assert.assertEquals;
-
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests to basic session methods. getAttribute,setAttribute,isNew,getAttributeNames etc.
@@ -50,7 +48,6 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
     public void test_setAttribute() throws Exception {
         CookieStore cookieStore = new BasicCookieStore();
         executeRequest("write", serverPort1, cookieStore);
-
         assertEquals("value", executeRequest("read", serverPort2, cookieStore));
     }
 
@@ -58,7 +55,6 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
     public void test_getAttribute() throws Exception {
         CookieStore cookieStore = new BasicCookieStore();
         executeRequest("write", serverPort1, cookieStore);
-
         assertEquals("value", executeRequest("readIfExist", serverPort2, cookieStore));
     }
 
@@ -72,7 +68,6 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
     public void test_getAttributeNames_WhenSessionNotEmpty() throws Exception {
         CookieStore cookieStore = new BasicCookieStore();
         executeRequest("write", serverPort1, cookieStore);
-
         assertEquals("key", executeRequest("names", serverPort1, cookieStore));
     }
 
@@ -81,7 +76,6 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
         CookieStore cookieStore = new BasicCookieStore();
         executeRequest("write", serverPort1, cookieStore);
         executeRequest("remove", serverPort2, cookieStore);
-
         assertEquals("null", executeRequest("read", serverPort1, cookieStore));
     }
 
@@ -90,7 +84,6 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
         CookieStore cookieStore = new BasicCookieStore();
         IMap<String, Object> map = hz.getMap(DEFAULT_MAP_NAME);
         executeRequest("write", serverPort1, cookieStore);
-
         assertEquals(1, map.size());
     }
 
@@ -98,10 +91,8 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
     public void test_clusterMapSizeAfterRemove() throws Exception {
         CookieStore cookieStore = new BasicCookieStore();
         IMap<String, Object> map = hz.getMap(DEFAULT_MAP_NAME);
-
         executeRequest("write", serverPort1, cookieStore);
         executeRequest("remove", serverPort2, cookieStore);
-
         assertEquals(1, map.size());
     }
 
@@ -109,19 +100,14 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
     public void test_updateAttribute() throws Exception {
         IMap<String, Object> map = hz.getMap(DEFAULT_MAP_NAME);
         CookieStore cookieStore = new BasicCookieStore();
-
         executeRequest("write", serverPort1, cookieStore);
         executeRequest("update", serverPort2, cookieStore);
-
         assertEquals("value-updated", executeRequest("read", serverPort1, cookieStore));
         String newSessionId = map.keySet().iterator().next();
-
         SessionState sessionState = (SessionState) map.get(newSessionId);
         System.out.println(sessionState);
-
         SerializationService ss = getNode(hz).getSerializationService();
         System.out.println("value is " + ss.toObject(sessionState.attributes.get("key")));
-
         assertSizeEventually(1, map);
         assertSizeEventually(1, sessionState.attributes);
     }
@@ -130,17 +116,15 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
     public void test_invalidateSession() throws Exception {
         IMap<String, Object> map = hz.getMap(DEFAULT_MAP_NAME);
         CookieStore cookieStore = new BasicCookieStore();
-
         executeRequest("write", serverPort1, cookieStore);
+        assertSizeEventually(1, map);
         executeRequest("invalidate", serverPort2, cookieStore);
-
         assertSizeEventually(0, map);
     }
 
     @Test(timeout = 20000)
     public void test_isNew() throws Exception {
         CookieStore cookieStore = new BasicCookieStore();
-
         assertEquals("true", executeRequest("isNew", serverPort1, cookieStore));
         assertEquals("false", executeRequest("isNew", serverPort1, cookieStore));
     }
@@ -149,7 +133,6 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
     public void test_sessionTimeout() throws Exception {
         CookieStore cookieStore = new BasicCookieStore();
         IMap<String, Object> map = hz.getMap(DEFAULT_MAP_NAME);
-
         executeRequest("write", serverPort1, cookieStore);
         executeRequest("timeout", serverPort1, cookieStore);
         assertSizeEventually(0, map);

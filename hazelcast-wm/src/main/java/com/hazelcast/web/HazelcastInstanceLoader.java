@@ -58,18 +58,15 @@ final class HazelcastInstanceLoader {
         final String useClientProp = properties.getProperty(USE_CLIENT);
         final String clientConfigLocation = properties.getProperty(CLIENT_CONFIG_LOCATION);
         final boolean useClient = !isEmpty(useClientProp) && Boolean.parseBoolean(useClientProp);
-
         URL configUrl = null;
         if (useClient && !isEmpty(clientConfigLocation)) {
             configUrl = getConfigURL(filterConfig, clientConfigLocation);
         } else if (!isEmpty(configLocation)) {
             configUrl = getConfigURL(filterConfig, configLocation);
         }
-
         if (useClient) {
             return createClientInstance(configUrl);
         }
-
         Config config;
         if (configUrl == null) {
             config = new XmlConfigBuilder().build();
@@ -80,7 +77,6 @@ final class HazelcastInstanceLoader {
                 throw new ServletException(e);
             }
         }
-
         return createHazelcastInstance(instanceName, config);
     }
 
@@ -103,7 +99,6 @@ final class HazelcastInstanceLoader {
         ClientConfig clientConfig;
         if (configUrl == null) {
             clientConfig = new ClientConfig();
-            clientConfig.getNetworkConfig().setConnectionAttemptLimit(DEFAULT_CONNECTION_ATTEMPT_LIMIT);
         } else {
             try {
                 clientConfig = new XmlClientConfigBuilder(configUrl).build();
@@ -111,6 +106,7 @@ final class HazelcastInstanceLoader {
                 throw new ServletException(e);
             }
         }
+        clientConfig.getNetworkConfig().setConnectionAttemptLimit(1);
         return HazelcastClient.newHazelcastClient(clientConfig);
     }
 
@@ -124,7 +120,6 @@ final class HazelcastInstanceLoader {
         if (configUrl == null) {
             configUrl = ConfigLoader.locateConfig(configLocation);
         }
-
         if (configUrl == null) {
             throw new ServletException("Could not load configuration '" + configLocation + "'");
         }
@@ -134,5 +129,4 @@ final class HazelcastInstanceLoader {
     private static boolean isEmpty(String s) {
         return s == null || s.trim().length() == 0;
     }
-
 }

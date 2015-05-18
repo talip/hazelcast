@@ -3,15 +3,16 @@ package com.hazelcast.web;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.Data;
-import com.hazelcast.nio.serialization.DataSerializable;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class SessionState implements IdentifiedDataSerializable {
-    public int referenceCount = 1;
+    public Set<String> jvmIds = new HashSet<String>(1);
     public Map<String, Data> attributes = new HashMap<String, Data>(1);
 
     @Override
@@ -30,7 +31,10 @@ public class SessionState implements IdentifiedDataSerializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        out.writeInt(referenceCount);
+        out.writeInt(jvmIds.size());
+        for (String jvmId : jvmIds) {
+            out.writeUTF(jvmId);
+        }
         out.writeInt(attributes.size());
         for (Map.Entry<String, Data> entry : attributes.entrySet()) {
             out.writeUTF(entry.getKey());
@@ -40,7 +44,10 @@ public class SessionState implements IdentifiedDataSerializable {
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        referenceCount = in.readInt();
+        int jvmCount = in.readInt();
+        for (int i = 0; i < jvmCount; i++) {
+            jvmIds.add(in.readUTF());
+        }
         int attCount = in.readInt();
         for (int i = 0; i < attCount; i++) {
             attributes.put(in.readUTF(), in.readData());
@@ -54,7 +61,7 @@ public class SessionState implements IdentifiedDataSerializable {
     @Override
     public String toString() {
         return "SessionState{" +
-                "referenceCount=" + referenceCount +
+                "referenceCount=" + jvmIds.size() +
                 ", attributes=" + ((attributes == null) ? 0 : attributes.size()) +
                 ", keys=" + attributes.keySet() +
                 '}';
