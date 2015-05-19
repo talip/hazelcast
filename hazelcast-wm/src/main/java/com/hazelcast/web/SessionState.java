@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class SessionState implements IdentifiedDataSerializable {
-    public Set<String> jvmIds = new HashSet<String>(1);
+    private Set<String> jvmIds = new HashSet<String>(1);
     public Map<String, Data> attributes = new HashMap<String, Data>(1);
 
     @Override
@@ -27,6 +27,20 @@ public class SessionState implements IdentifiedDataSerializable {
 
     public void setAttribute(String key, Data value) {
         attributes.put(key, value);
+    }
+
+    public boolean addJvmId(String jvmId) {
+        if (jvmId == null) throw new NullPointerException("JVM Id cannot be null.");
+        return jvmIds.add(jvmId);
+    }
+
+    public boolean removeJvmId(String jvmId) {
+        if (jvmId == null) throw new NullPointerException("JVM Id cannot be null.");
+        return jvmIds.remove(jvmId);
+    }
+
+    public Set<String> getJvmIds() {
+        return jvmIds;
     }
 
     @Override

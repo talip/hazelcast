@@ -162,8 +162,11 @@ public class HazelcastHttpSession implements HttpSession {
     }
 
     public void invalidate() {
-        originalSession.invalidate();
+        // we must invalidate hazelcast session first
+        // invalidating original session will trigger another
+        // invalidation as our SessionListener will be triggered.
         webFilter.destroySession(this, true);
+        originalSession.invalidate();
     }
 
     public boolean isNew() {
@@ -226,9 +229,9 @@ public class HazelcastHttpSession implements HttpSession {
         originalSession.setMaxInactiveInterval(maxInactiveSeconds);
     }
 
-    void destroy() {
+    void destroy(boolean invalidate) {
         valid = false;
-        webFilter.clusteredSessionService.deleteSession(id);
+        webFilter.clusteredSessionService.deleteSession(id, invalidate);
     }
 
     public boolean isValid() {

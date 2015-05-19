@@ -40,10 +40,6 @@ import static org.junit.Assert.assertEquals;
 @Category(QuickTest.class)
 public class DisconnectedHazelcastTest extends AbstractWebFilterTest {
 
-    static {
-        System.setProperty("hazelcast.test.disableThreadDumpOnFailure", "true");
-    }
-
     public DisconnectedHazelcastTest() {
         super("node1-node.xml", "node2-node.xml");
     }

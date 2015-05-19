@@ -265,7 +265,7 @@ public class WebFilter implements Filter {
         }
         sessions.remove(session.getId());
         originalSessions.remove(session.originalSession.getId());
-        session.destroy();
+        session.destroy(invalidate);
     }
 
     private HazelcastHttpSession getSessionWithId(final String sessionId) {

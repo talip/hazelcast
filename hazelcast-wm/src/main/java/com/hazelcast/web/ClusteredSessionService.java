@@ -19,9 +19,9 @@ import com.hazelcast.spi.impl.SerializationServiceSupport;
 import javax.servlet.FilterConfig;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class ClusteredSessionService {
@@ -36,7 +36,7 @@ public class ClusteredSessionService {
     private final String clusterMapName;
     private final String sessionTTL;
     protected static final ILogger LOGGER = Logger.getLogger(ClusteredSessionService.class);
-    private final Set<String> orphanSessions = new CopyOnWriteArraySet<String>();
+    private final Queue<String> orphanSessions = new LinkedBlockingQueue<String>();
     private volatile boolean failedConnection = true;
     private volatile long lastConnectionTry = 0;
     private final ExecutorService es = Executors.newSingleThreadExecutor();
@@ -65,10 +65,11 @@ public class ClusteredSessionService {
     }
 
     private void ensureInstance() throws Exception {
-        if (failedConnection && System.currentTimeMillis() > lastConnectionTry + 7000) {
+        final long RETRY_MILLIS = 7000;
+        if (failedConnection && System.currentTimeMillis() > lastConnectionTry + RETRY_MILLIS) {
             synchronized (this) {
                 try {
-                    if (failedConnection && System.currentTimeMillis() > lastConnectionTry + 6000) {
+                    if (failedConnection && System.currentTimeMillis() > lastConnectionTry + RETRY_MILLIS) {
                         LOGGER.info("Retrying the connection!!");
                         lastConnectionTry = System.currentTimeMillis();
                         hazelcastInstance = HazelcastInstanceLoader.createInstance(filterConfig, properties);
@@ -86,6 +87,14 @@ public class ClusteredSessionService {
                         }
                         failedConnection = false;
                         LOGGER.info("Successfully Connected!");
+                        String sessionId = orphanSessions.poll();
+                        while (sessionId != null) {
+                            if (!deleteSession(sessionId, false)) {
+                                sessionId = null;  // do not continue
+                            } else {
+                                sessionId = orphanSessions.poll();
+                            }
+                        }
                     }
                 } catch (Exception e) {
                     failedConnection = true;
@@ -98,6 +107,9 @@ public class ClusteredSessionService {
     Object executeOnKey(String sessionId, EntryProcessor processor) throws Exception {
         try {
             ensureInstance();
+            if (processor instanceof JvmIdAware) {
+                ((JvmIdAware) processor).setJvmId(jvmId);
+            }
             return clusterMap.executeOnKey(sessionId, processor);
         } catch (Exception e) {
             failedConnection = true;
@@ -139,13 +151,25 @@ public class ClusteredSessionService {
         executeOnKey(sessionId, sessionUpdateProcessor);
     }
 
-    public void deleteSession(String id) {
+    /**
+     * @param sessionId  sessionId
+     * @param invalidate if true remove the distributed session, otherwise just
+     *                   remove the jvm reference
+     */
+    public boolean deleteSession(String sessionId, boolean invalidate) {
         try {
-            clusterMap.delete(id);
+            doDeleteSession(sessionId, invalidate);
+            return true;
         } catch (Exception e) {
-            failedConnection = true;
-            orphanSessions.add(id);
+            orphanSessions.add(sessionId);
+            return false;
         }
+    }
+
+    private void doDeleteSession(String sessionId, boolean invalidate) throws Exception {
+        DeleteSession entryProcessor = new DeleteSession(sessionId, invalidate);
+        entryProcessor.setJvmId(jvmId);
+        executeOnKey(sessionId, entryProcessor);
     }
 
     public Set<String> getAttributeNames(String id) throws Exception {
@@ -155,6 +179,7 @@ public class ClusteredSessionService {
     public void updateAttributes(String id, Map<String, Object> updates) throws Exception {
         SerializationService ss = sss.getSerializationService();
         SessionUpdateProcessor sessionUpdate = new SessionUpdateProcessor(updates.size());
+        sessionUpdate.setJvmId(jvmId);
         for (Map.Entry<String, Object> entry : updates.entrySet()) {
             String name = entry.getKey();
             Object value = entry.getValue();
@@ -174,7 +199,7 @@ public class ClusteredSessionService {
     }
 
     public static class GetAttribute implements EntryProcessor<String, SessionState>,
-            IdentifiedDataSerializable {
+            IdentifiedDataSerializable, JvmIdAware {
 
         String attributeName;
 
@@ -212,7 +237,7 @@ public class ClusteredSessionService {
             if (sessionState == null) {
                 return null;
             }
-            sessionState.jvmIds.add(jvmId);
+            sessionState.addJvmId(jvmId);
             return sessionState.attributes.get(attributeName);
         }
 
@@ -235,7 +260,7 @@ public class ClusteredSessionService {
     }
 
     public static class GetAttributeNames implements EntryProcessor<String, SessionState>,
-            IdentifiedDataSerializable {
+            IdentifiedDataSerializable, JvmIdAware {
 
         public GetAttributeNames() {
         }
@@ -266,7 +291,7 @@ public class ClusteredSessionService {
             if (sessionState == null) {
                 return null;
             }
-            sessionState.jvmIds.add(jvmId);
+            sessionState.addJvmId(jvmId);
             return new HashSet<String>(sessionState.attributes.keySet());
         }
 
@@ -288,7 +313,7 @@ public class ClusteredSessionService {
 
     public static class SessionUpdateProcessor
             implements EntryProcessor<String, SessionState>,
-            EntryBackupProcessor<String, SessionState>, IdentifiedDataSerializable {
+            EntryBackupProcessor<String, SessionState>, IdentifiedDataSerializable, JvmIdAware {
 
         private Map<String, Data> attributes = null;
 
@@ -331,6 +356,7 @@ public class ClusteredSessionService {
             if (sessionState == null) {
                 sessionState = new SessionState();
             }
+            sessionState.addJvmId(jvmId);
             for (Map.Entry<String, Data> attribute : attributes.entrySet()) {
                 String name = attribute.getKey();
                 Data value = attribute.getValue();
@@ -375,8 +401,85 @@ public class ClusteredSessionService {
         }
     }
 
+    public static class DeleteSession
+            implements EntryProcessor<String, SessionState>,
+            EntryBackupProcessor<String, SessionState>, IdentifiedDataSerializable, JvmIdAware {
+
+        private String jvmId = null;
+        private boolean invalidate = false;
+        private boolean removed = false;
+
+        public DeleteSession(String jvmId, boolean invalidate) {
+            this.jvmId = jvmId;
+            this.invalidate = invalidate;
+        }
+
+        public DeleteSession() {
+        }
+
+        public String getJvmId() {
+            return jvmId;
+        }
+
+        public void setJvmId(String jvmId) {
+            this.jvmId = jvmId;
+        }
+
+        @Override
+        public int getFactoryId() {
+            return WebDataSerializerHook.F_ID;
+        }
+
+        @Override
+        public int getId() {
+            return WebDataSerializerHook.SESSION_DELETE;
+        }
+
+        @Override
+        public Object process(Map.Entry<String, SessionState> entry) {
+            SessionState sessionState = entry.getValue();
+            if (sessionState == null) {
+                return Boolean.FALSE;
+            }
+            System.out.println(sessionState.getJvmIds());
+            System.out.println(invalidate + " !!!  DELETING !!! " + sessionState + " jvmId > " + jvmId);
+            sessionState.removeJvmId(jvmId);
+            System.out.println(sessionState.getJvmIds());
+            if (invalidate || sessionState.getJvmIds().size() == 0) {
+                entry.setValue(null);
+                removed = true;
+            }
+            return Boolean.TRUE;
+        }
+
+        @Override
+        public EntryBackupProcessor<String, SessionState> getBackupProcessor() {
+            return (removed) ? this : null;
+        }
+
+        @Override
+        public void writeData(ObjectDataOutput out) throws IOException {
+            out.writeUTF(jvmId);
+            out.writeBoolean(invalidate);
+        }
+
+        @Override
+        public void readData(ObjectDataInput in) throws IOException {
+            jvmId = in.readUTF();
+            invalidate = in.readBoolean();
+        }
+
+        @Override
+        public void processBackup(Map.Entry<String, SessionState> entry) {
+            SessionState sessionState = entry.getValue();
+            if (sessionState != null) {
+                entry.setValue(null);
+            }
+        }
+    }
+
     public static class GetSessionState implements EntryProcessor<String, SessionState>,
-            IdentifiedDataSerializable {
+            IdentifiedDataSerializable, JvmIdAware {
 
         public GetSessionState() {
         }
@@ -407,7 +510,7 @@ public class ClusteredSessionService {
             if (sessionState == null) {
                 return null;
             }
-            sessionState.jvmIds.add(jvmId);
+            sessionState.addJvmId(jvmId);
             entry.setValue(sessionState);
             return sessionState;
         }

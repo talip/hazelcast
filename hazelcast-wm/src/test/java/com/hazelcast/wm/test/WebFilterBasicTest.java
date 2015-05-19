@@ -123,6 +123,17 @@ public class WebFilterBasicTest extends AbstractWebFilterTest {
     }
 
     @Test(timeout = 20000)
+    public void test_invalidateMultiReferenceSession() throws Exception {
+        IMap<String, Object> map = hz.getMap(DEFAULT_MAP_NAME);
+        CookieStore cookieStore = new BasicCookieStore();
+        executeRequest("write", serverPort1, cookieStore);
+        assertSizeEventually(1, map);
+        executeRequest("write", serverPort2, cookieStore);
+        executeRequest("invalidate", serverPort1, cookieStore);
+        assertSizeEventually(0, map);
+    }
+
+    @Test(timeout = 20000)
     public void test_isNew() throws Exception {
         CookieStore cookieStore = new BasicCookieStore();
         assertEquals("true", executeRequest("isNew", serverPort1, cookieStore));

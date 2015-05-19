@@ -31,6 +31,7 @@ public class WebDataSerializerHook implements DataSerializerHook {
     public static final int INVALIDATE_SESSION_ATTRIBUTES_ID = 4;
     public static final int REFERENCE_SESSION_ID = 5;
     public static final int SESSION_UPDATE = 6;
+    public static final int SESSION_DELETE = 7;
     public static final int GET_ATTRIBUTE = 8;
     public static final int GET_ATTRIBUTE_NAMES = 9;
     public static final int GET_SESSION_STATE = 10;
@@ -55,6 +56,8 @@ public class WebDataSerializerHook implements DataSerializerHook {
                         return new ReferenceSessionEntryProcessor();
                     case SESSION_UPDATE:
                         return new ClusteredSessionService.SessionUpdateProcessor();
+                    case SESSION_DELETE:
+                        return new ClusteredSessionService.DeleteSession();
                     case GET_ATTRIBUTE:
                         return new ClusteredSessionService.GetAttribute();
                     case GET_ATTRIBUTE_NAMES:
